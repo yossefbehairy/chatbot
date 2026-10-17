@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bot Control Panel</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', 'Tahoma', sans-serif;
+      max-width: 420px;
+      margin: 20px auto;
+      padding: 20px;
+      background: #0d1117;
+      color: #e6edf3;
+    }
+    h1 { font-size: 1.3rem; margin-bottom: 20px; color: #58a6ff; }
+    .card {
+      background: #161b22;
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 12px;
+      border: 1px solid #30363d;
+    }
+    .card h2 { font-size: 0.95rem; color: #8b949e; margin-bottom: 10px; border-bottom: 1px solid #30363d; padding-bottom: 6px; }
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid #21262d;
+    }
+    .row:last-child { border-bottom: none; }
+    .label { font-size: 0.9rem; }
+    .toggle {
+      width: 46px; height: 24px;
+      background: #30363d;
+      border-radius: 12px;
+      cursor: pointer;
+      position: relative;
+      transition: background 0.2s;
+    }
+    .toggle.on { background: #238636; }
+    .toggle::after {
+      content: '';
+      position: absolute;
+      width: 18px; height: 18px;
+      background: #fff;
+      border-radius: 50%;
+      top: 3px; left: 3px;
+      transition: transform 0.2s;
+    }
+    .toggle.on::after { transform: translateX(22px); }
+    .status { font-size: 0.8rem; color: #8b949e; margin-top: 10px; }
+    input[type="text"], input[type="number"] {
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid #30363d;
+      background: #0d1117;
+      color: #e6edf3;
+      font-size: 0.9rem;
+      width: 100%;
+    }
+    button {
+      padding: 8px 14px;
+      border-radius: 6px;
+      border: none;
+      background: #238636;
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover { background: #2ea043; }
+    .add-row { display: flex; gap: 8px; margin-top: 8px; }
+    .add-row input { flex: 1; }
+    .num-item, .qr-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 10px;
+      background: #0d1117;
+      border-radius: 6px;
+      margin-bottom: 6px;
+      font-size: 0.85rem;
+    }
+    .num-item button, .qr-item button { background: transparent; color: #8b949e; padding: 2px 8px; }
+    .num-item button:hover, .qr-item button:hover { color: #f85149; }
+    .stats { font-size: 0.85rem; color: #8b949e; }
+    .stats span { color: #58a6ff; font-weight: 600; }
+    .section-title { font-size: 0.8rem; color: #8b949e; margin-bottom: 6px; }
+  </style>
+</head>
+<body>
+  <h1>🤖 Bot Control Panel</h1>
+
+  <div class="card">
+    <h2>Main Controls</h2>
+    <div class="row"><span class="label">Bot On/Off</span><div class="toggle" id="botEnabled"></div></div>
+    <div class="row"><span class="label">Reply to Groups</span><div class="toggle" id="replyToGroups"></div></div>
+    <div class="row"><span class="label">Reply to Private</span><div class="toggle" id="replyToPrivate"></div></div>
+    <div class="row"><span class="label">Reply to All Private</span><div class="toggle" id="replyToPrivateAll"></div></div>
+    <div class="row"><span class="label">Free speech in groups</span><div class="toggle" id="groupSpeechFreedom"></div></div>
+    <div class="row"><span class="label">Typing delay</span><div class="toggle" id="typingDelayEnabled"></div></div>
+  </div>
+
+  <div class="card">
+    <h2>Owner Notifications</h2>
+    <div class="row"><span class="label">Notify on unknown number</span><div class="toggle" id="notifyOnUnknown"></div></div>
+    <div class="section-title">Owner number (for notifications)</div>
+    <input type="text" id="ownerNumber" placeholder="201012345678" />
+  </div>
+
+  <div class="card">
+    <h2>Spam Filter</h2>
+    <div class="row"><span class="label">Enable spam filter</span><div class="toggle" id="spamFilterEnabled"></div></div>
+    <div class="row"><span class="label">Block links</span><div class="toggle" id="blockLinks"></div></div>
+    <div class="section-title">Min message length (chars)</div>
+    <input type="number" id="minMessageLength" min="1" placeholder="1" />
+  </div>
+
+  <div class="card">
+    <h2>Allowed Numbers (private)</h2>
+    <div class="add-row">
+      <input type="text" id="newNumber" placeholder="+20 10 12345678" />
+      <button type="button" id="addNumber">Add</button>
+    </div>
+    <div id="numList"></div>
+  </div>
+
+  <div class="card">
+    <h2>Quick Replies (keyword → response)</h2>
+    <div class="section-title">Keyword</div>
+    <input type="text" id="qrKey" placeholder="hi" />
+    <div class="section-title">Response</div>
+    <div class="add-row">
+      <input type="text" id="qrVal" placeholder="Hello" />
+      <button type="button" id="addQR">Add</button>
+    </div>
+    <div id="qrList"></div>
+  </div>
+
+  <div class="card">
+    <h2>Stats</h2>
+    <div class="stats">Total replies: <span id="totalReplies">0</span></div>
+    <div class="stats">Since: <span id="lastReset">-</span></div>
+  </div>
+
+  <div class="status" id="status"></div>
+
+  <script>
+    const API = '/api';
+    const toggles = ['botEnabled', 'replyToGroups', 'replyToPrivate', 'replyToPrivateAll', 'groupSpeechFreedom', 'typingDelayEnabled', 'notifyOnUnknown', 'spamFilterEnabled', 'blockLinks'];
+    const groupFreedomKey = 'groupSpeechFreedom';
+    let state = { allowedNumbers: [], quickReplies: {} };
+
+    function setToggle(id, on) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.classList.toggle('on', on);
+      el.setAttribute('aria-checked', on);
+    }
+
+    function renderNumbers() {
+      const list = document.getElementById('numList');
+      list.innerHTML = (state.allowedNumbers || []).map((n) =>
+        '<div class="num-item">' + String(n).replace(/\D/g, '') + '<button data-remove="' + n + '">×</button></div>'
+      ).join('');
+      list.querySelectorAll('[data-remove]').forEach((btn) => btn.onclick = () => removeNumber(btn.dataset.remove));
+    }
+
+    function renderQuickReplies() {
+      const list = document.getElementById('qrList');
+      const qr = state.quickReplies || {};
+      list.innerHTML = Object.entries(qr).map(([k, v]) =>
+        '<div class="qr-item">' + k + ' → ' + (v + '').slice(0, 30) + '<button data-k="' + k + '">×</button></div>'
+      ).join('');
+      list.querySelectorAll('[data-k]').forEach((btn) => btn.onclick = () => removeQR(btn.dataset.k));
+    }
+
+    function normNum(s) { return String(s).replace(/\D/g, ''); }
+
+    async function fetchState() {
+      try {
+        const r = await fetch(API + '/state');
+        state = await r.json();
+        toggles.forEach(k => setToggle(k, state[k]));
+        setToggle(groupFreedomKey, (state[groupFreedomKey] || 'free') === 'free');
+        document.getElementById('ownerNumber').value = state.ownerNumber || '';
+        document.getElementById('minMessageLength').value = state.minMessageLength || 1;
+        renderNumbers();
+        renderQuickReplies();
+        return state;
+      } catch (e) {
+        document.getElementById('status').textContent = 'Cannot connect to bot';
+        return null;
+      }
+    }
+
+    async function fetchStats() {
+      try {
+        const r = await fetch(API + '/stats');
+        const s = await r.json();
+        document.getElementById('totalReplies').textContent = s.totalReplies || 0;
+        document.getElementById('lastReset').textContent = s.lastReset ? new Date(s.lastReset).toLocaleDateString() : '-';
+      } catch {}
+    }
+
+    async function saveState(updates) {
+      const payload = { ...state, ...updates };
+      try {
+        const r = await fetch(API + '/state', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const res = await r.json();
+        document.getElementById('status').textContent = res.ok ? 'Saved ✓' : (res.error || 'Error');
+        setTimeout(() => { document.getElementById('status').textContent = ''; }, 2000);
+        if (res.ok) await fetchState();
+      } catch (e) {
+        document.getElementById('status').textContent = 'Failed to save';
+      }
+    }
+
+    function addNumber() {
+      const n = normNum(document.getElementById('newNumber').value);
+      if (!n) return;
+      const list = [...(state.allowedNumbers || [])];
+      if (list.includes(n)) { document.getElementById('status').textContent = 'Already in list'; return; }
+      list.push(n);
+      document.getElementById('newNumber').value = '';
+      saveState({ allowedNumbers: list });
+    }
+
+    function removeNumber(n) {
+      const list = (state.allowedNumbers || []).filter((x) => normNum(x) !== normNum(n));
+      saveState({ allowedNumbers: list });
+    }
+
+    function addQR() {
+      const k = (document.getElementById('qrKey').value || '').trim().toLowerCase();
+      const v = (document.getElementById('qrVal').value || '').trim();
+      if (!k || !v) return;
+      const qr = { ...(state.quickReplies || {}), [k]: v };
+      document.getElementById('qrKey').value = '';
+      document.getElementById('qrVal').value = '';
+      saveState({ quickReplies: qr });
+    }
+
+    function removeQR(k) {
+      const qr = { ...(state.quickReplies || {}) };
+      delete qr[k];
+      saveState({ quickReplies: qr });
+    }
+
+    toggles.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el || id === groupFreedomKey) return;
+      el.addEventListener('click', () => {
+        const next = !el.classList.contains('on');
+        setToggle(id, next);
+        saveState({ [id]: next });
+      });
+    });
+    document.getElementById(groupFreedomKey)?.addEventListener('click', () => {
+      const el = document.getElementById(groupFreedomKey);
+      const next = !el.classList.contains('on');
+      setToggle(groupFreedomKey, next);
+      saveState({ [groupFreedomKey]: next ? 'free' : 'triggers' });
+    });
+
+    document.getElementById('ownerNumber')?.addEventListener('blur', () => saveState({ ownerNumber: document.getElementById('ownerNumber').value }));
+    document.getElementById('minMessageLength')?.addEventListener('blur', () => saveState({ minMessageLength: parseInt(document.getElementById('minMessageLength').value) || 1 }));
+    document.getElementById('addNumber')?.addEventListener('click', addNumber);
+    document.getElementById('addQR')?.addEventListener('click', addQR);
+    document.getElementById('newNumber')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') addNumber(); });
+
+    fetchState();
+    fetchStats();
+    setInterval(fetchState, 5000);
+    setInterval(fetchStats, 10000);
+  </script>
+</body>
+</html>

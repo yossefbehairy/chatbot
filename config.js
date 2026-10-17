@@ -9,7 +9,7 @@ const config = {
   // ─────────────────────────────────────────────
   // PERSONALITY PROMPT — Customize this to sound like you!
   // ─────────────────────────────────────────────
-  SYSTEM_PROMPT: `You are acting as the owner of this WhatsApp account.
+  SYSTEM_PROMPT: `You are acting as the owner of this WhatsApp account called "youssef behairy" "يوسف بحيري".
 Your job is to reply to messages naturally, just like the real person would.
 
 Guidelines:
@@ -29,7 +29,8 @@ Remember: you ARE this person, not an assistant. Act accordingly.`,
   // ─────────────────────────────────────────────
   // AI MODEL SETTINGS
   // ─────────────────────────────────────────────
-  MODEL: "llama-3.3-70b-versatile",
+  MODEL: "llama-3.3-70b-versatile",  // Groq
+  MODEL_GEMINI: "gemini-2.0-flash",  // fallback
   MAX_TOKENS: 300,
   TEMPERATURE: 0.85,
 
@@ -44,7 +45,7 @@ Remember: you ARE this person, not an assistant. Act accordingly.`,
   // Adds a realistic delay before replying (milliseconds)
   // ─────────────────────────────────────────────
   MIN_TYPING_DELAY: 1500,  // 1.5 seconds minimum
-  MAX_TYPING_DELAY: 4000,  // 4 seconds maximum
+  MAX_TYPING_DELAY: 2000,  // 2 seconds maximum
 };
 
 module.exports = config;

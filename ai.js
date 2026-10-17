@@ -1,85 +1,119 @@
 /**
- * ai.js — Groq AI Integration
- * Handles sending messages to Groq and returning AI responses
+ * ai.js — AI integration (Groq primary, Gemini fallback)
  */
 
 require("dotenv").config();
-const Groq = require("groq-sdk");
+const fs = require("fs");
+const path = require("path");
 const config = require("./config");
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const MEMORY_PATH = path.join(__dirname, "data", "memory.json");
+let conversationHistory = new Map();
 
-// In-memory store for conversation history per contact
-// Key = phone number, Value = array of {role, content} messages
-const conversationHistory = new Map();
+function loadMemory() {
+  try {
+    const data = fs.readFileSync(MEMORY_PATH, "utf8");
+    const obj = JSON.parse(data);
+    conversationHistory = new Map(Object.entries(obj));
+  } catch {}
+}
 
-/**
- * Get or create conversation history for a contact
- */
+function saveMemory() {
+  try {
+    fs.mkdirSync(path.dirname(MEMORY_PATH), { recursive: true });
+    const obj = Object.fromEntries(conversationHistory);
+    fs.writeFileSync(MEMORY_PATH, JSON.stringify(obj, null, 2));
+  } catch (e) {
+    console.warn("[Memory] Could not save:", e.message);
+  }
+}
+
+loadMemory();
+
 function getHistory(contactId) {
-    if (!conversationHistory.has(contactId)) {
-        conversationHistory.set(contactId, []);
-    }
-    return conversationHistory.get(contactId);
+  if (!conversationHistory.has(contactId)) {
+    conversationHistory.set(contactId, []);
+  }
+  return conversationHistory.get(contactId);
 }
 
-/**
- * Add a message to conversation history, trimming old ones if needed
- */
 function addToHistory(contactId, role, content) {
-    const history = getHistory(contactId);
-    history.push({ role, content });
-
-    // Keep only the last N messages to avoid token limits
-    if (history.length > config.MAX_HISTORY) {
-        history.splice(0, history.length - config.MAX_HISTORY);
-    }
+  const history = getHistory(contactId);
+  history.push({ role, content });
+  if (history.length > config.MAX_HISTORY) {
+    history.splice(0, history.length - config.MAX_HISTORY);
+  }
+  saveMemory();
 }
 
-/**
- * Generate an AI reply for a given message and contact
- * @param {string} contactId - Unique ID (phone number) of the sender
- * @param {string} userMessage - The message they sent
- * @returns {Promise<string>} - The AI-generated reply
- */
+async function generateReplyGroq(contactId, userMessage) {
+  const Groq = require("groq-sdk");
+  const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+  const history = getHistory(contactId);
+  const prompt = config.getSystemPrompt ? config.getSystemPrompt() : config.SYSTEM_PROMPT;
+
+  const response = await groq.chat.completions.create({
+    model: config.MODEL,
+    max_tokens: config.MAX_TOKENS,
+    temperature: config.TEMPERATURE,
+    messages: [{ role: "system", content: prompt }, ...history],
+  });
+  return response.choices[0]?.message?.content?.trim() || null;
+}
+
+async function generateReplyGemini(contactId, userMessage) {
+  const { GoogleGenAI } = require("@google/genai");
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY });
+  const history = getHistory(contactId);
+  const prompt = config.getSystemPrompt ? config.getSystemPrompt() : config.SYSTEM_PROMPT;
+
+  const contents = history.map(({ role, content }) => ({
+    role: role === "assistant" ? "model" : "user",
+    parts: [{ text: content }],
+  }));
+
+  const response = await ai.models.generateContent({
+    model: config.MODEL_GEMINI || "gemini-2.0-flash",
+    contents,
+    config: { systemInstruction: prompt, temperature: config.TEMPERATURE, maxOutputTokens: config.MAX_TOKENS },
+  });
+  return response?.text?.trim() || null;
+}
+
 async function generateReply(contactId, userMessage) {
-    try {
-        // Add their message to history
-        addToHistory(contactId, "user", userMessage);
+  try {
+    addToHistory(contactId, "user", userMessage);
+    let reply = null;
 
-        const history = getHistory(contactId);
-
-        const response = await groq.chat.completions.create({
-            model: config.MODEL,
-            max_tokens: config.MAX_TOKENS,
-            temperature: config.TEMPERATURE,
-            messages: [
-                { role: "system", content: config.SYSTEM_PROMPT },
-                ...history,
-            ],
-        });
-
-        const reply = response.choices[0]?.message?.content?.trim();
-
-        if (!reply) {
-            throw new Error("Empty response from Groq");
-        }
-
-        // Add the AI's reply to history for context in future messages
-        addToHistory(contactId, "assistant", reply);
-
-        return reply;
-    } catch (error) {
-        console.error("[AI Error]", error.message);
-        return null; // Return null so bot.js can handle it gracefully
+    if (process.env.GROQ_API_KEY) {
+      try {
+        reply = await generateReplyGroq(contactId, userMessage);
+      } catch (e) {
+        if (e?.status !== 429) console.warn("[Groq]", e?.message || e);
+      }
     }
+
+    if (!reply && (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY)) {
+      try {
+        reply = await generateReplyGemini(contactId, userMessage);
+      } catch (e) {
+        if (e?.error?.code === 429) console.warn("[Gemini] Quota exceeded.");
+        console.error("[AI Error]", e?.error?.message || e?.message || e);
+      }
+    }
+
+    if (!reply) return null;
+    addToHistory(contactId, "assistant", reply);
+    return reply;
+  } catch (error) {
+    console.error("[AI Error]", error?.message || error);
+    return null;
+  }
 }
 
-/**
- * Clear conversation history for a contact (e.g. after long inactivity)
- */
 function clearHistory(contactId) {
-    conversationHistory.delete(contactId);
+  conversationHistory.delete(contactId);
+  saveMemory();
 }
 
-module.exports = { generateReply, clearHistory };
+module.exports = { generateReply, clearHistory, getHistory };

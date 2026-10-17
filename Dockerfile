@@ -1,10 +1,6 @@
-# ─────────────────────────────────────────
-# Dockerfile for WhatsApp AI Bot
-# ─────────────────────────────────────────
-
 FROM node:20-slim
 
-# Install Chromium dependencies (required by whatsapp-web.js / Puppeteer)
+# Chromium + fonts required by whatsapp-web.js / Puppeteer
 RUN apt-get update && apt-get install -y \
     chromium \
     fonts-liberation \
@@ -25,25 +21,24 @@ RUN apt-get update && apt-get install -y \
     libxfixes3 \
     libxrandr2 \
     libxshmfence1 \
-    wget \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
-# Tell Puppeteer to use installed Chromium instead of downloading its own
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+# Use the Chromium installed above instead of downloading one
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
+    NODE_ENV=production
 
 WORKDIR /app
 
-# Copy package files first (for caching)
+# Install dependencies first so Docker can cache this layer
 COPY package*.json ./
-RUN npm install --production
+RUN npm ci --omit=dev
 
-# Copy source files
+# Copy the source (secrets, sessions and runtime data are excluded via .dockerignore)
 COPY . .
 
-# Create session directory
+# WhatsApp session lives here (bind-mount or Fly volume in production)
 RUN mkdir -p session
 
-# Expose nothing (WhatsApp is client-side only)
 CMD ["node", "bot.js"]

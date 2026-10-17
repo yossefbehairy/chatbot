@@ -4,7 +4,7 @@ services:
     runtime: docker       # Uses our Dockerfile
     plan: free
     envVars:
-      - key: GROQ_API_KEY
+      - key: GEMINI_API_KEY
         sync: false       # You'll set this manually in the Render dashboard
       - key: REPLY_IN_GROUPS
         value: false

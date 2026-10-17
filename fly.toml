@@ -1,4 +1,4 @@
-app = "whatsapp-ai-bot"
+app = "wa-bot-youssef166"
 primary_region = "iad"  # US East — change to "fra" for Europe, "sin" for Asia
 
 [build]
