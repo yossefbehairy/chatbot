@@ -1,0 +1,17 @@
+# Keep secrets, sessions, runtime data and dev files out of the image
+.git
+.gitignore
+.editorconfig
+.env
+node_modules
+npm-debug.log*
+session
+session2
+session2_backup
+.wwebjs_cache
+.wwebjs_cache_backup
+data
+logs
+controls.json
+README.md
+README.ar.md

@@ -1,4 +1,24 @@
+# Dependencies
 node_modules/
-session/
-logs/
+
+# Secrets — never commit
 .env
+
+# WhatsApp sessions (login credentials)
+session/
+session2/
+session2_backup/
+
+# whatsapp-web.js web cache
+.wwebjs_cache/
+.wwebjs_cache_backup/
+
+# Runtime state (auto-created)
+data/
+logs/
+controls.json
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+npm-debug.log*
